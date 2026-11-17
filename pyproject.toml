@@ -1,0 +1,32 @@
+[project]
+name = "wimi-backend"
+version = "1.0.0"
+description = "Production-grade Django REST Framework backend for Wimi / TiBoutik"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.1,<5.2",
+    "djangorestframework>=3.15,<3.16",
+    "djangorestframework-simplejwt>=5.3,<5.4",
+    "django-cors-headers>=4.4,<4.5",
+    "drf-spectacular>=0.28,<0.29",
+    "django-environ>=0.11,<0.12",
+    "psycopg[binary]>=3.2,<3.3",
+    "pillow>=10.4",
+    "gunicorn>=23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "factory-boy>=3.3",
+    "faker>=30.0",
+    "coverage>=7.6",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "-v --strict-markers --no-migrations"
+testpaths = ["tests"]

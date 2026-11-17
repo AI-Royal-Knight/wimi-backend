@@ -1,0 +1,604 @@
+{
+  "info": {
+    "_postman_id": "e89d1b74-297c-4a38-8924-a218520cf91a",
+    "name": "TiBoutik / Wimi API",
+    "description": "Comprehensive Postman collection for TiBoutik / Wimi Hyperlocal Marketplace REST API. Includes customer auth, merchant onboarding, token management, password recovery, profile management, and system health checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. System & Health",
+      "description": "Health checks, OpenAPI 3.0 schema, and interactive documentation endpoints.",
+      "item": [
+        {
+          "name": "Health Check & Database Probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health/",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", ""]
+            },
+            "description": "Liveness and database readiness probe endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"System is healthy and DB is connected\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"healthy\");",
+                  "    pm.expect(json.components.database).to.eql(\"connected\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OpenAPI 3.0 Schema",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/vnd.oai.openapi+json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/schema/",
+              "host": ["{{baseUrl}}"],
+              "path": ["schema", ""]
+            },
+            "description": "Retrieve OpenAPI 3.0 schema specification."
+          }
+        },
+        {
+          "name": "Swagger UI Documentation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/docs/",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs", ""]
+            },
+            "description": "Interactive Swagger UI documentation."
+          }
+        },
+        {
+          "name": "ReDoc Documentation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/redoc/",
+              "host": ["{{baseUrl}}"],
+              "path": ["redoc", ""]
+            },
+            "description": "Clean ReDoc specification view."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Customer Authentication Flow",
+      "description": "Customer signup, 4-digit OTP verification, and resend OTP cooldown logic.",
+      "item": [
+        {
+          "name": "1. Customer Signup (Send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jean-Pierre Laurent\",\n  \"email\": \"customer@example.com\",\n  \"phone\": \"+242065551234\",\n  \"password\": \"SecurePassword123!\",\n  \"terms_accepted\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup", ""]
+            },
+            "description": "Creates an inactive customer account and dispatches a 4-digit verification code."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Signup response contains verification prompt\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Verify Signup OTP (Activate & Login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\",\n  \"otp_code\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup/verify/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup", "verify", ""]
+            },
+            "description": "Verifies 4-digit OTP, activates user account, and returns JWT access and refresh tokens."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.access) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.access);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refresh);",
+                  "    console.log(\"accessToken & refreshToken saved to collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Resend Signup OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"customer@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup/resend-otp/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup", "resend-otp", ""]
+            },
+            "description": "Resends 4-digit code. Enforces 60-second cooldown period between attempts."
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Merchant Registration Flow",
+      "description": "Merchant owner and store registration endpoint returning full JWT credentials and store object.",
+      "item": [
+        {
+          "name": "Register Merchant & Store",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Amadou Diallo\",\n  \"email\": \"amadou.store@example.com\",\n  \"phone\": \"+242069998877\",\n  \"password\": \"MerchantPassword123!\",\n  \"store_name\": \"Saveurs & Terroirs Brazzaville\",\n  \"category\": \"Supermarket\",\n  \"store_address\": \"Avenue Denis Sassou Nguesso, Brazzaville\",\n  \"store_description\": \"Premier organic groceries, fresh local produce, and imported goods.\",\n  \"terms_accepted\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/merchant/register/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "merchant", "register", ""]
+            },
+            "description": "Registers merchant owner and store, assigns role 'merchant', auto-activates, and issues JWT tokens."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"User role is merchant\", function () {",
+                  "    pm.expect(json.data.user.role).to.eql(\"merchant\");",
+                  "    pm.expect(json.data.store.name).to.not.be.empty;",
+                  "});",
+                  "if (json.data && json.data.access) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.access);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refresh);",
+                  "    console.log(\"accessToken & refreshToken saved to collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04. Session & Token Management",
+      "description": "Sign in with email/phone, refresh access tokens, blacklist tokens on logout.",
+      "item": [
+        {
+          "name": "Sign In (Email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"amadou.store@example.com\",\n  \"password\": \"MerchantPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", ""]
+            },
+            "description": "Authenticate user using registered email address."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.access) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.access);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refresh);",
+                  "    console.log(\"accessToken updated in collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign In (Phone Number)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"+242069998877\",\n  \"password\": \"MerchantPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", ""]
+            },
+            "description": "Authenticate user using registered phone number."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.access) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.access);",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refresh);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Access Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token/refresh/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token", "refresh", ""]
+            },
+            "description": "Renew short-lived JWT access token using valid refresh token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.access) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.access);",
+                  "    console.log(\"accessToken renewed.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign Out / Blacklist Token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{accessToken}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout", ""]
+            },
+            "description": "Invalidates and blacklists the refresh token permanently."
+          }
+        },
+        {
+          "name": "Legacy Login Alias (/api/auth/login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"amadou.store@example.com\",\n  \"password\": \"MerchantPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8000/api/auth/login",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Direct route matching legacy Flutter app authentication path."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Password Recovery Flow",
+      "description": "Forgot password request, OTP verification to obtain reset token, and password reset.",
+      "item": [
+        {
+          "name": "1. Request Password Reset OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"email\",\n  \"identifier\": \"amadou.store@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password/request/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password", "request", ""]
+            },
+            "description": "Requests a 4-digit recovery OTP code sent to email or phone."
+          }
+        },
+        {
+          "name": "2. Verify Recovery OTP (Get Reset Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"amadou.store@example.com\",\n  \"otp_code\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password/verify/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password", "verify", ""]
+            },
+            "description": "Verifies 4-digit code and issues single-use reset_token valid for 15 minutes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.reset_token) {",
+                  "    pm.collectionVariables.set(\"resetToken\", json.data.reset_token);",
+                  "    console.log(\"resetToken saved to collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Reset Password with Reset Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reset_token\": \"{{resetToken}}\",\n  \"new_password\": \"NewSecurePassword123!\",\n  \"confirm_password\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password/reset/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password", "reset", ""]
+            },
+            "description": "Sets new password using the single-use reset_token."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. User Profile & Account (Authenticated)",
+      "description": "Endpoints requiring JWT Bearer token authentication.",
+      "item": [
+        {
+          "name": "Get Current Profile (Me)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{accessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me", ""]
+            },
+            "description": "Returns full authenticated user profile, role, verification status, and store info (if merchant)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Profile Details",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{accessToken}}", "type": "string" }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Amadou Diallo Senior\",\n  \"phone\": \"+242069998800\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/me/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me", ""]
+            },
+            "description": "Update editable profile fields (full_name, phone, avatar)."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{accessToken}}", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"MerchantPassword123!\",\n  \"new_password\": \"BrandNewPassword2026!\",\n  \"confirm_password\": \"BrandNewPassword2026!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password/",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password", ""]
+            },
+            "description": "Change password for the authenticated user, revoking old tokens."
+          }
+        }
+      ]
+    }
+  ]
+}
